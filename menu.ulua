@@ -1,0 +1,953 @@
+-- LocalScript (place in StarterPlayerScripts)
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+--// Theme (changed live from the Menu Settings page)
+local accent = Color3.fromRGB(220, 50, 50)
+local bgColor = Color3.fromRGB(18, 18, 22)
+local WHITE = Color3.new(1, 1, 1)
+local BLACK = Color3.new(0, 0, 0)
+
+local function sideColor() return bgColor:Lerp(BLACK, 0.3) end
+local function fieldColor() return bgColor:Lerp(WHITE, 0.1) end
+
+--// Create ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CustomMenu"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = playerGui
+
+--// Main Frame (bigger: 460 x 380)
+local main = Instance.new("Frame")
+main.Name = "Main"
+main.Size = UDim2.new(0, 460, 0, 380)
+main.Position = UDim2.new(0.5, -230, 0.5, -190)
+main.BackgroundColor3 = bgColor
+main.BorderSizePixel = 0
+main.Active = true
+main.Draggable = true
+main.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = main
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = accent
+stroke.Thickness = 1.5
+stroke.Parent = main
+
+--// Left Sidebar
+local sidebar = Instance.new("Frame")
+sidebar.Size = UDim2.new(0, 135, 1, 0)
+sidebar.BackgroundColor3 = sideColor()
+sidebar.BorderSizePixel = 0
+sidebar.Parent = main
+
+local sideCorner = Instance.new("UICorner")
+sideCorner.CornerRadius = UDim.new(0, 8)
+sideCorner.Parent = sidebar
+
+-- Logo
+local logo = Instance.new("ImageLabel")
+logo.Name = "Logo"
+logo.Size = UDim2.new(0, 70, 0, 70)
+logo.Position = UDim2.new(0.5, -35, 0, 8)
+logo.BackgroundTransparency = 1
+logo.Image = "rbxassetid://113479677268928"
+logo.ScaleType = Enum.ScaleType.Fit
+logo.Parent = sidebar
+
+-- Sidebar buttons
+local categories = {"Player", "Settings", "Menu Settings"}
+local catButtons = {}
+local currentPage = "Player"
+local setPage -- defined below, once the pages exist
+
+local yOffset = 90
+for _, name in ipairs(categories) do
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(1, -10, 0, 30)
+	btn.Position = UDim2.new(0, 5, 0, yOffset)
+	btn.BackgroundColor3 = sideColor()
+	btn.BorderSizePixel = 0
+	btn.Text = "  " .. name
+	btn.TextColor3 = Color3.fromRGB(220, 220, 220)
+	btn.TextSize = 14
+	btn.Font = Enum.Font.Gotham
+	btn.TextXAlignment = Enum.TextXAlignment.Left
+	btn.AutoButtonColor = false
+	btn.Parent = sidebar
+
+	local btnCorner = Instance.new("UICorner")
+	btnCorner.CornerRadius = UDim.new(0, 4)
+	btnCorner.Parent = btn
+
+	catButtons[name] = btn
+	btn.MouseButton1Click:Connect(function()
+		setPage(name)
+	end)
+
+	yOffset = yOffset + 36
+end
+
+--// Content Area
+local content = Instance.new("Frame")
+content.Size = UDim2.new(1, -145, 1, -10)
+content.Position = UDim2.new(0, 140, 0, 5)
+content.BackgroundTransparency = 1
+content.Parent = main
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.BackgroundTransparency = 1
+title.Text = "PLAYER"
+title.TextColor3 = accent
+title.TextSize = 18
+title.Font = Enum.Font.GothamBold
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = content
+
+-- Pages (one frame per sidebar option)
+local function makePage()
+	local page = Instance.new("Frame")
+	page.Size = UDim2.new(1, 0, 1, 0)
+	page.BackgroundTransparency = 1
+	page.Visible = false
+	page.Parent = content
+	return page
+end
+
+local pages = {
+	["Player"] = makePage(),
+	["Settings"] = makePage(),
+	["Menu Settings"] = makePage(),
+}
+pages["Player"].Visible = true
+
+setPage = function(name)
+	currentPage = name
+	for pageName, page in pairs(pages) do
+		page.Visible = (pageName == name)
+	end
+	for btnName, btn in pairs(catButtons) do
+		btn.BackgroundColor3 = (btnName == name) and accent or sideColor()
+	end
+	title.Text = string.upper(name)
+end
+
+local playerPage = pages["Player"]
+
+-- ========== SPEED ==========
+local speedEnabled = false
+local normalSpeed = 16
+local currentSpeed = 32
+local speedKey = Enum.KeyCode.V
+local waitingForKey = false
+
+local speedRow = Instance.new("Frame")
+speedRow.Size = UDim2.new(1, -10, 0, 40)
+speedRow.Position = UDim2.new(0, 0, 0, 45)
+speedRow.BackgroundTransparency = 1
+speedRow.Parent = playerPage
+
+local speedCheck = Instance.new("TextButton")
+speedCheck.Size = UDim2.new(0, 22, 0, 22)
+speedCheck.Position = UDim2.new(0, 0, 0.5, -11)
+speedCheck.BackgroundColor3 = fieldColor()
+speedCheck.BorderSizePixel = 0
+speedCheck.Text = ""
+speedCheck.AutoButtonColor = false
+speedCheck.Parent = speedRow
+
+local checkCorner = Instance.new("UICorner")
+checkCorner.CornerRadius = UDim.new(0, 4)
+checkCorner.Parent = speedCheck
+
+local speedLabel = Instance.new("TextLabel")
+speedLabel.Size = UDim2.new(0, 80, 1, 0)
+speedLabel.Position = UDim2.new(0, 30, 0, 0)
+speedLabel.BackgroundTransparency = 1
+speedLabel.Text = "Speed"
+speedLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+speedLabel.TextSize = 15
+speedLabel.Font = Enum.Font.Gotham
+speedLabel.TextXAlignment = Enum.TextXAlignment.Left
+speedLabel.Parent = speedRow
+
+local keybindBtn = Instance.new("TextButton")
+keybindBtn.Size = UDim2.new(0, 70, 0, 26)
+keybindBtn.Position = UDim2.new(1, -75, 0.5, -13)
+keybindBtn.BackgroundColor3 = fieldColor()
+keybindBtn.BorderSizePixel = 0
+keybindBtn.Text = "V"
+keybindBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+keybindBtn.TextSize = 14
+keybindBtn.Font = Enum.Font.GothamBold
+keybindBtn.AutoButtonColor = false
+keybindBtn.Parent = speedRow
+
+local keyCorner = Instance.new("UICorner")
+keyCorner.CornerRadius = UDim.new(0, 4)
+keyCorner.Parent = keybindBtn
+
+-- ========== SLIDER ==========
+local sliderFrame = Instance.new("Frame")
+sliderFrame.Size = UDim2.new(1, -10, 0, 50)
+sliderFrame.Position = UDim2.new(0, 0, 0, 95)
+sliderFrame.BackgroundTransparency = 1
+sliderFrame.Parent = playerPage
+
+local sliderLabel = Instance.new("TextLabel")
+sliderLabel.Size = UDim2.new(1, 0, 0, 18)
+sliderLabel.BackgroundTransparency = 1
+sliderLabel.Text = "Speed: 32"
+sliderLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+sliderLabel.TextSize = 13
+sliderLabel.Font = Enum.Font.Gotham
+sliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+sliderLabel.Parent = sliderFrame
+
+local track = Instance.new("Frame")
+track.Size = UDim2.new(1, 0, 0, 6)
+track.Position = UDim2.new(0, 0, 0, 28)
+track.BackgroundColor3 = fieldColor()
+track.BorderSizePixel = 0
+track.Parent = sliderFrame
+
+local trackCorner = Instance.new("UICorner")
+trackCorner.CornerRadius = UDim.new(1, 0)
+trackCorner.Parent = track
+
+local fill = Instance.new("Frame")
+fill.Size = UDim2.new(0.2, 0, 1, 0)
+fill.BackgroundColor3 = accent
+fill.BorderSizePixel = 0
+fill.Parent = track
+
+local fillCorner = Instance.new("UICorner")
+fillCorner.CornerRadius = UDim.new(1, 0)
+fillCorner.Parent = fill
+
+local thumb = Instance.new("TextButton")
+thumb.Size = UDim2.new(0, 16, 0, 16)
+thumb.Position = UDim2.new(0.2, -8, 0.5, -8)
+thumb.BackgroundColor3 = Color3.fromRGB(220, 220, 220)
+thumb.BorderSizePixel = 0
+thumb.Text = ""
+thumb.AutoButtonColor = false
+thumb.Parent = track
+
+local thumbCorner = Instance.new("UICorner")
+thumbCorner.CornerRadius = UDim.new(1, 0)
+thumbCorner.Parent = thumb
+
+local dragging = false
+local minSpeed = 16
+local maxSpeed = 100
+
+local function updateSlider(value)
+	value = math.clamp(value, minSpeed, maxSpeed)
+	currentSpeed = math.floor(value)
+	local percent = (currentSpeed - minSpeed) / (maxSpeed - minSpeed)
+	fill.Size = UDim2.new(percent, 0, 1, 0)
+	thumb.Position = UDim2.new(percent, -8, 0.5, -8)
+	sliderLabel.Text = "Speed: " .. currentSpeed
+end
+
+updateSlider(32)
+
+local function sliderFromMouse()
+	local mousePos = UserInputService:GetMouseLocation()
+	local relative = math.clamp((mousePos.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+	updateSlider(minSpeed + (maxSpeed - minSpeed) * relative)
+end
+
+thumb.MouseButton1Down:Connect(function()
+	dragging = true
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = false
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+		sliderFromMouse()
+	end
+end)
+
+track.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		sliderFromMouse()
+	end
+end)
+
+RunService.Heartbeat:Connect(function()
+	if speedEnabled then
+		local character = player.Character
+		if character then
+			local humanoid = character:FindFirstChildOfClass("Humanoid")
+			if humanoid then
+				humanoid.WalkSpeed = currentSpeed
+			end
+		end
+	end
+end)
+
+local function setSpeedState(state)
+	speedEnabled = state
+	speedCheck.BackgroundColor3 = speedEnabled and accent or fieldColor()
+	if not speedEnabled then
+		local character = player.Character
+		if character then
+			local humanoid = character:FindFirstChildOfClass("Humanoid")
+			if humanoid then
+				humanoid.WalkSpeed = normalSpeed
+			end
+		end
+	end
+end
+
+speedCheck.MouseButton1Click:Connect(function()
+	setSpeedState(not speedEnabled)
+end)
+
+keybindBtn.MouseButton1Click:Connect(function()
+	waitingForKey = true
+	keybindBtn.Text = "..."
+	keybindBtn.BackgroundColor3 = accent:Lerp(BLACK, 0.6)
+end)
+
+-- ========== AUTO CLICKER ==========
+local clickEnabled = false
+local clickCPS = 60
+local clickKey = Enum.KeyCode.C
+local waitingForClickKey = false
+local clickTimer = 0
+
+local clickRow = Instance.new("Frame")
+clickRow.Size = UDim2.new(1, -10, 0, 40)
+clickRow.Position = UDim2.new(0, 0, 0, 160)
+clickRow.BackgroundTransparency = 1
+clickRow.Parent = playerPage
+
+local clickCheck = Instance.new("TextButton")
+clickCheck.Size = UDim2.new(0, 22, 0, 22)
+clickCheck.Position = UDim2.new(0, 0, 0.5, -11)
+clickCheck.BackgroundColor3 = fieldColor()
+clickCheck.BorderSizePixel = 0
+clickCheck.Text = ""
+clickCheck.AutoButtonColor = false
+clickCheck.Parent = clickRow
+
+local clickCheckCorner = Instance.new("UICorner")
+clickCheckCorner.CornerRadius = UDim.new(0, 4)
+clickCheckCorner.Parent = clickCheck
+
+local clickLabel = Instance.new("TextLabel")
+clickLabel.Size = UDim2.new(0, 110, 1, 0)
+clickLabel.Position = UDim2.new(0, 30, 0, 0)
+clickLabel.BackgroundTransparency = 1
+clickLabel.Text = "Hold Clicker"
+clickLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+clickLabel.TextSize = 15
+clickLabel.Font = Enum.Font.Gotham
+clickLabel.TextXAlignment = Enum.TextXAlignment.Left
+clickLabel.Parent = clickRow
+
+local clickKeyBtn = Instance.new("TextButton")
+clickKeyBtn.Size = UDim2.new(0, 70, 0, 26)
+clickKeyBtn.Position = UDim2.new(1, -75, 0.5, -13)
+clickKeyBtn.BackgroundColor3 = fieldColor()
+clickKeyBtn.BorderSizePixel = 0
+clickKeyBtn.Text = "C"
+clickKeyBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+clickKeyBtn.TextSize = 14
+clickKeyBtn.Font = Enum.Font.GothamBold
+clickKeyBtn.AutoButtonColor = false
+clickKeyBtn.Parent = clickRow
+
+local clickKeyCorner = Instance.new("UICorner")
+clickKeyCorner.CornerRadius = UDim.new(0, 4)
+clickKeyCorner.Parent = clickKeyBtn
+
+local clickSliderFrame = Instance.new("Frame")
+clickSliderFrame.Size = UDim2.new(1, -10, 0, 50)
+clickSliderFrame.Position = UDim2.new(0, 0, 0, 210)
+clickSliderFrame.BackgroundTransparency = 1
+clickSliderFrame.Parent = playerPage
+
+local clickSliderLabel = Instance.new("TextLabel")
+clickSliderLabel.Size = UDim2.new(1, 0, 0, 18)
+clickSliderLabel.BackgroundTransparency = 1
+clickSliderLabel.Text = "Clicks per second: MAX (every frame)"
+clickSliderLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+clickSliderLabel.TextSize = 13
+clickSliderLabel.Font = Enum.Font.Gotham
+clickSliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+clickSliderLabel.Parent = clickSliderFrame
+
+local clickTrack = Instance.new("Frame")
+clickTrack.Size = UDim2.new(1, 0, 0, 6)
+clickTrack.Position = UDim2.new(0, 0, 0, 28)
+clickTrack.BackgroundColor3 = fieldColor()
+clickTrack.BorderSizePixel = 0
+clickTrack.Parent = clickSliderFrame
+
+local clickTrackCorner = Instance.new("UICorner")
+clickTrackCorner.CornerRadius = UDim.new(1, 0)
+clickTrackCorner.Parent = clickTrack
+
+local clickFill = Instance.new("Frame")
+clickFill.Size = UDim2.new(1, 0, 1, 0)
+clickFill.BackgroundColor3 = accent
+clickFill.BorderSizePixel = 0
+clickFill.Parent = clickTrack
+
+local clickFillCorner = Instance.new("UICorner")
+clickFillCorner.CornerRadius = UDim.new(1, 0)
+clickFillCorner.Parent = clickFill
+
+local clickThumb = Instance.new("TextButton")
+clickThumb.Size = UDim2.new(0, 16, 0, 16)
+clickThumb.Position = UDim2.new(1, -8, 0.5, -8)
+clickThumb.BackgroundColor3 = Color3.fromRGB(220, 220, 220)
+clickThumb.BorderSizePixel = 0
+clickThumb.Text = ""
+clickThumb.AutoButtonColor = false
+clickThumb.Parent = clickTrack
+
+local clickThumbCorner = Instance.new("UICorner")
+clickThumbCorner.CornerRadius = UDim.new(1, 0)
+clickThumbCorner.Parent = clickThumb
+
+local clickDragging = false
+local minCPS = 1
+local maxCPS = 60
+
+local function updateClickSlider(value)
+	value = math.clamp(value, minCPS, maxCPS)
+	clickCPS = math.floor(value + 0.5)
+	local percent = (clickCPS - minCPS) / (maxCPS - minCPS)
+	clickFill.Size = UDim2.new(percent, 0, 1, 0)
+	clickThumb.Position = UDim2.new(percent, -8, 0.5, -8)
+	if clickCPS >= maxCPS then
+		clickSliderLabel.Text = "Clicks per second: MAX (every frame)"
+	else
+		clickSliderLabel.Text = "Clicks per second: " .. clickCPS
+	end
+end
+
+updateClickSlider(60)
+
+local function clickSliderFromMouse()
+	local mousePos = UserInputService:GetMouseLocation()
+	local relative = math.clamp((mousePos.X - clickTrack.AbsolutePosition.X) / clickTrack.AbsoluteSize.X, 0, 1)
+	updateClickSlider(minCPS + (maxCPS - minCPS) * relative)
+end
+
+clickThumb.MouseButton1Down:Connect(function()
+	clickDragging = true
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		clickDragging = false
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if clickDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+		clickSliderFromMouse()
+	end
+end)
+
+clickTrack.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		clickSliderFromMouse()
+	end
+end)
+
+local mouse = player:GetMouse()
+local function mouseOverMenu()
+	if not main.Visible then return false end
+	local pos, size = main.AbsolutePosition, main.AbsoluteSize
+	return mouse.X >= pos.X and mouse.X <= pos.X + size.X
+		and mouse.Y >= pos.Y and mouse.Y <= pos.Y + size.Y
+end
+
+RunService.Heartbeat:Connect(function(dt)
+	local holding = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+	if not clickEnabled or not holding or mouseOverMenu() then
+		clickTimer = 0
+		return
+	end
+	clickTimer = clickTimer + dt
+	if clickCPS >= maxCPS or clickTimer >= 1 / clickCPS then
+		clickTimer = 0
+		local character = player.Character
+		local tool = character and character:FindFirstChildOfClass("Tool")
+		if tool then
+			tool:Activate()
+		end
+	end
+end)
+
+local function setClickState(state)
+	clickEnabled = state
+	clickCheck.BackgroundColor3 = clickEnabled and accent or fieldColor()
+end
+
+clickCheck.MouseButton1Click:Connect(function()
+	setClickState(not clickEnabled)
+end)
+
+clickKeyBtn.MouseButton1Click:Connect(function()
+	waitingForClickKey = true
+	clickKeyBtn.Text = "..."
+	clickKeyBtn.BackgroundColor3 = accent:Lerp(BLACK, 0.6)
+end)
+
+-- ========== FLY ==========
+local flyEnabled = false
+local flyKey = Enum.KeyCode.F
+local waitingForFlyKey = false
+local flySpeed = 50
+local flyBodyVel, flyBodyGyro
+
+local flyRow = Instance.new("Frame")
+flyRow.Size = UDim2.new(1, -10, 0, 40)
+flyRow.Position = UDim2.new(0, 0, 0, 275)
+flyRow.BackgroundTransparency = 1
+flyRow.Parent = playerPage
+
+local flyCheck = Instance.new("TextButton")
+flyCheck.Size = UDim2.new(0, 22, 0, 22)
+flyCheck.Position = UDim2.new(0, 0, 0.5, -11)
+flyCheck.BackgroundColor3 = fieldColor()
+flyCheck.BorderSizePixel = 0
+flyCheck.Text = ""
+flyCheck.AutoButtonColor = false
+flyCheck.Parent = flyRow
+
+local flyCheckCorner = Instance.new("UICorner")
+flyCheckCorner.CornerRadius = UDim.new(0, 4)
+flyCheckCorner.Parent = flyCheck
+
+local flyLabel = Instance.new("TextLabel")
+flyLabel.Size = UDim2.new(0, 80, 1, 0)
+flyLabel.Position = UDim2.new(0, 30, 0, 0)
+flyLabel.BackgroundTransparency = 1
+flyLabel.Text = "Fly"
+flyLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+flyLabel.TextSize = 15
+flyLabel.Font = Enum.Font.Gotham
+flyLabel.TextXAlignment = Enum.TextXAlignment.Left
+flyLabel.Parent = flyRow
+
+local flyKeyBtn = Instance.new("TextButton")
+flyKeyBtn.Size = UDim2.new(0, 70, 0, 26)
+flyKeyBtn.Position = UDim2.new(1, -75, 0.5, -13)
+flyKeyBtn.BackgroundColor3 = fieldColor()
+flyKeyBtn.BorderSizePixel = 0
+flyKeyBtn.Text = "F"
+flyKeyBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+flyKeyBtn.TextSize = 14
+flyKeyBtn.Font = Enum.Font.GothamBold
+flyKeyBtn.AutoButtonColor = false
+flyKeyBtn.Parent = flyRow
+
+local flyKeyCorner = Instance.new("UICorner")
+flyKeyCorner.CornerRadius = UDim.new(0, 4)
+flyKeyCorner.Parent = flyKeyBtn
+
+local function enableFly()
+	local character = player.Character
+	if not character then return end
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not hrp or not humanoid then return end
+
+	humanoid.PlatformStand = true
+
+	flyBodyVel = Instance.new("BodyVelocity")
+	flyBodyVel.Velocity = Vector3.zero
+	flyBodyVel.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+	flyBodyVel.Parent = hrp
+
+	flyBodyGyro = Instance.new("BodyGyro")
+	flyBodyGyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+	flyBodyGyro.P = 1e4
+	flyBodyGyro.CFrame = hrp.CFrame
+	flyBodyGyro.Parent = hrp
+end
+
+local function disableFly()
+	local character = player.Character
+	if not character then return end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid then humanoid.PlatformStand = false end
+	if flyBodyVel then flyBodyVel:Destroy(); flyBodyVel = nil end
+	if flyBodyGyro then flyBodyGyro:Destroy(); flyBodyGyro = nil end
+end
+
+local function setFlyState(state)
+	flyEnabled = state
+	flyCheck.BackgroundColor3 = flyEnabled and accent or fieldColor()
+	if flyEnabled then
+		enableFly()
+	else
+		disableFly()
+	end
+end
+
+flyCheck.MouseButton1Click:Connect(function()
+	setFlyState(not flyEnabled)
+end)
+
+flyKeyBtn.MouseButton1Click:Connect(function()
+	waitingForFlyKey = true
+	flyKeyBtn.Text = "..."
+	flyKeyBtn.BackgroundColor3 = accent:Lerp(BLACK, 0.6)
+end)
+
+-- Fly movement loop
+RunService.Heartbeat:Connect(function()
+	if not flyEnabled or not flyBodyVel or not flyBodyGyro then return end
+	local character = player.Character
+	if not character then return end
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+
+	local camera = workspace.CurrentCamera
+	local cf = camera.CFrame
+	local dir = Vector3.zero
+
+	if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + cf.LookVector end
+	if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - cf.LookVector end
+	if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - cf.RightVector end
+	if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + cf.RightVector end
+	if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
+	if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - Vector3.new(0, 1, 0) end
+
+	if dir.Magnitude > 0 then
+		flyBodyVel.Velocity = dir.Unit * flySpeed
+	else
+		flyBodyVel.Velocity = Vector3.zero
+	end
+
+	flyBodyGyro.CFrame = cf
+end)
+
+-- Clean up on respawn
+player.CharacterAdded:Connect(function()
+	flyBodyVel = nil
+	flyBodyGyro = nil
+	if flyEnabled then
+		task.wait(0.1)
+		enableFly()
+	end
+end)
+
+-- ========== SETTINGS PAGE — CAM LOCK ==========
+local settingsPage = pages["Settings"]
+
+local camLockEnabled = false
+local camLockKey = Enum.KeyCode.L
+local waitingForCamLockKey = false
+local lockedCFrame = nil
+
+local camLockRow = Instance.new("Frame")
+camLockRow.Size = UDim2.new(1, -10, 0, 40)
+camLockRow.Position = UDim2.new(0, 0, 0, 45)
+camLockRow.BackgroundTransparency = 1
+camLockRow.Parent = settingsPage
+
+local camLockCheck = Instance.new("TextButton")
+camLockCheck.Size = UDim2.new(0, 22, 0, 22)
+camLockCheck.Position = UDim2.new(0, 0, 0.5, -11)
+camLockCheck.BackgroundColor3 = fieldColor()
+camLockCheck.BorderSizePixel = 0
+camLockCheck.Text = ""
+camLockCheck.AutoButtonColor = false
+camLockCheck.Parent = camLockRow
+
+local camLockCheckCorner = Instance.new("UICorner")
+camLockCheckCorner.CornerRadius = UDim.new(0, 4)
+camLockCheckCorner.Parent = camLockCheck
+
+local camLockLabel = Instance.new("TextLabel")
+camLockLabel.Size = UDim2.new(0, 120, 1, 0)
+camLockLabel.Position = UDim2.new(0, 30, 0, 0)
+camLockLabel.BackgroundTransparency = 1
+camLockLabel.Text = "Cam Lock"
+camLockLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+camLockLabel.TextSize = 15
+camLockLabel.Font = Enum.Font.Gotham
+camLockLabel.TextXAlignment = Enum.TextXAlignment.Left
+camLockLabel.Parent = camLockRow
+
+local camLockKeyBtn = Instance.new("TextButton")
+camLockKeyBtn.Size = UDim2.new(0, 70, 0, 26)
+camLockKeyBtn.Position = UDim2.new(1, -75, 0.5, -13)
+camLockKeyBtn.BackgroundColor3 = fieldColor()
+camLockKeyBtn.BorderSizePixel = 0
+camLockKeyBtn.Text = "L"
+camLockKeyBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+camLockKeyBtn.TextSize = 14
+camLockKeyBtn.Font = Enum.Font.GothamBold
+camLockKeyBtn.AutoButtonColor = false
+camLockKeyBtn.Parent = camLockRow
+
+local camLockKeyCorner = Instance.new("UICorner")
+camLockKeyCorner.CornerRadius = UDim.new(0, 4)
+camLockKeyCorner.Parent = camLockKeyBtn
+
+-- Info hint below the toggle
+local camLockHint = Instance.new("TextLabel")
+camLockHint.Size = UDim2.new(1, -10, 0, 20)
+camLockHint.Position = UDim2.new(0, 0, 0, 93)
+camLockHint.BackgroundTransparency = 1
+camLockHint.Text = "Snaps camera angle on enable"
+camLockHint.TextColor3 = Color3.fromRGB(110, 110, 120)
+camLockHint.TextSize = 12
+camLockHint.Font = Enum.Font.Gotham
+camLockHint.TextXAlignment = Enum.TextXAlignment.Left
+camLockHint.Parent = settingsPage
+
+local function setCamLockState(state)
+	camLockEnabled = state
+	camLockCheck.BackgroundColor3 = camLockEnabled and accent or fieldColor()
+	if camLockEnabled then
+		-- Snap the current camera CFrame as the lock target
+		lockedCFrame = workspace.CurrentCamera.CFrame
+		workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable
+	else
+		lockedCFrame = nil
+		workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+	end
+end
+
+camLockCheck.MouseButton1Click:Connect(function()
+	setCamLockState(not camLockEnabled)
+end)
+
+camLockKeyBtn.MouseButton1Click:Connect(function()
+	waitingForCamLockKey = true
+	camLockKeyBtn.Text = "..."
+	camLockKeyBtn.BackgroundColor3 = accent:Lerp(BLACK, 0.6)
+end)
+
+-- Hold the camera in place every frame while locked
+RunService.RenderStepped:Connect(function()
+	if camLockEnabled and lockedCFrame then
+		workspace.CurrentCamera.CFrame = lockedCFrame
+	end
+end)
+
+-- ========== MENU SETTINGS PAGE ==========
+local menuPage = pages["Menu Settings"]
+
+local function applyAccent(color)
+	accent = color
+	title.TextColor3 = color
+	stroke.Color = color
+	fill.BackgroundColor3 = color
+	clickFill.BackgroundColor3 = color
+	if speedEnabled then speedCheck.BackgroundColor3 = color end
+	if clickEnabled then clickCheck.BackgroundColor3 = color end
+	if flyEnabled then flyCheck.BackgroundColor3 = color end
+	if camLockEnabled then camLockCheck.BackgroundColor3 = color end
+	catButtons[currentPage].BackgroundColor3 = color
+end
+
+local function applyBackground(color)
+	bgColor = color
+	main.BackgroundColor3 = color
+	sidebar.BackgroundColor3 = sideColor()
+	for name, btn in pairs(catButtons) do
+		if name ~= currentPage then
+			btn.BackgroundColor3 = sideColor()
+		end
+	end
+	if not speedEnabled then speedCheck.BackgroundColor3 = fieldColor() end
+	if not waitingForKey then keybindBtn.BackgroundColor3 = fieldColor() end
+	track.BackgroundColor3 = fieldColor()
+	clickTrack.BackgroundColor3 = fieldColor()
+	if not clickEnabled then clickCheck.BackgroundColor3 = fieldColor() end
+	if not waitingForClickKey then clickKeyBtn.BackgroundColor3 = fieldColor() end
+	if not flyEnabled then flyCheck.BackgroundColor3 = fieldColor() end
+	if not waitingForFlyKey then flyKeyBtn.BackgroundColor3 = fieldColor() end
+	if not camLockEnabled then camLockCheck.BackgroundColor3 = fieldColor() end
+	if not waitingForCamLockKey then camLockKeyBtn.BackgroundColor3 = fieldColor() end
+end
+
+local function makeSectionLabel(text, y)
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, -10, 0, 20)
+	label.Position = UDim2.new(0, 0, 0, y)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextColor3 = Color3.fromRGB(200, 200, 205)
+	label.TextSize = 14
+	label.Font = Enum.Font.GothamBold
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = menuPage
+end
+
+local function makeSwatchRow(y, colors, defaultIndex, onPick)
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, -10, 0, 34)
+	row.Position = UDim2.new(0, 0, 0, y)
+	row.BackgroundTransparency = 1
+	row.Parent = menuPage
+
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.Padding = UDim.new(0, 8)
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.Parent = row
+
+	local rings = {}
+	local function highlight(selected)
+		for i, ring in ipairs(rings) do
+			ring.Transparency = (i == selected) and 0 or 1
+		end
+	end
+
+	for i, color in ipairs(colors) do
+		local swatch = Instance.new("TextButton")
+		swatch.Size = UDim2.new(0, 28, 0, 28)
+		swatch.BackgroundColor3 = color
+		swatch.BorderSizePixel = 0
+		swatch.Text = ""
+		swatch.AutoButtonColor = false
+		swatch.Parent = row
+
+		local swatchCorner = Instance.new("UICorner")
+		swatchCorner.CornerRadius = UDim.new(0, 6)
+		swatchCorner.Parent = swatch
+
+		local ring = Instance.new("UIStroke")
+		ring.Color = WHITE
+		ring.Thickness = 2
+		ring.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		ring.Parent = swatch
+		rings[i] = ring
+
+		swatch.MouseButton1Click:Connect(function()
+			highlight(i)
+			onPick(color)
+		end)
+	end
+
+	highlight(defaultIndex)
+end
+
+local accentColors = {
+	Color3.fromRGB(220, 50, 50),
+	Color3.fromRGB(235, 120, 35),
+	Color3.fromRGB(235, 200, 45),
+	Color3.fromRGB(55, 200, 95),
+	Color3.fromRGB(45, 190, 220),
+	Color3.fromRGB(65, 115, 235),
+	Color3.fromRGB(150, 75, 230),
+	Color3.fromRGB(235, 85, 170),
+}
+
+local backgroundColors = {
+	Color3.fromRGB(18, 18, 22),
+	Color3.fromRGB(6, 6, 8),
+	Color3.fromRGB(16, 20, 38),
+	Color3.fromRGB(14, 28, 22),
+	Color3.fromRGB(34, 14, 18),
+	Color3.fromRGB(26, 16, 38),
+	Color3.fromRGB(32, 34, 40),
+}
+
+makeSectionLabel("Menu Color", 45)
+makeSwatchRow(70, accentColors, 1, applyAccent)
+
+makeSectionLabel("Background", 120)
+makeSwatchRow(145, backgroundColors, 1, applyBackground)
+
+setPage("Player")
+
+local footer = Instance.new("TextLabel")
+footer.Size = UDim2.new(1, 0, 0, 20)
+footer.Position = UDim2.new(0, 0, 1, -22)
+footer.BackgroundTransparency = 1
+footer.Text = "Press K to toggle menu"
+footer.TextColor3 = Color3.fromRGB(120, 120, 130)
+footer.TextSize = 12
+footer.Font = Enum.Font.Gotham
+footer.Parent = main
+
+--// Input
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+
+	if waitingForCamLockKey and input.UserInputType == Enum.UserInputType.Keyboard then
+		camLockKey = input.KeyCode
+		camLockKeyBtn.Text = input.KeyCode.Name
+		camLockKeyBtn.BackgroundColor3 = fieldColor()
+		waitingForCamLockKey = false
+		return
+	end
+
+	if waitingForFlyKey and input.UserInputType == Enum.UserInputType.Keyboard then
+		flyKey = input.KeyCode
+		flyKeyBtn.Text = input.KeyCode.Name
+		flyKeyBtn.BackgroundColor3 = fieldColor()
+		waitingForFlyKey = false
+		return
+	end
+
+	if waitingForClickKey and input.UserInputType == Enum.UserInputType.Keyboard then
+		clickKey = input.KeyCode
+		clickKeyBtn.Text = input.KeyCode.Name
+		clickKeyBtn.BackgroundColor3 = fieldColor()
+		waitingForClickKey = false
+		return
+	end
+
+	if waitingForKey and input.UserInputType == Enum.UserInputType.Keyboard then
+		speedKey = input.KeyCode
+		keybindBtn.Text = input.KeyCode.Name
+		keybindBtn.BackgroundColor3 = fieldColor()
+		waitingForKey = false
+		return
+	end
+
+	if input.KeyCode == Enum.KeyCode.K then
+		main.Visible = not main.Visible
+	end
+
+	if input.KeyCode == speedKey and not waitingForKey then
+		setSpeedState(not speedEnabled)
+	end
+
+	if input.KeyCode == clickKey and not waitingForClickKey then
+		setClickState(not clickEnabled)
+	end
+
+	if input.KeyCode == flyKey and not waitingForFlyKey then
+		setFlyState(not flyEnabled)
+	end
+
+	if input.KeyCode == camLockKey and not waitingForCamLockKey then
+		setCamLockState(not camLockEnabled)
+	end
+end)
+
+print("Menu loaded — Press K to toggle menu")
